@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Web;
+using Newtonsoft.Json;
 
 namespace JenkinsNET.Internal.Commands
 {
@@ -21,21 +23,27 @@ namespace JenkinsNET.Internal.Commands
             if (jobParameters == null)
                 throw new ArgumentNullException(nameof(jobParameters));
 
-            var _params = new Dictionary<string, string>(jobParameters) {
-                ["delay"] = "0sec",
-            };
+            //var _params = new Dictionary<string, string>(jobParameters) {
+            //    ["delay"] = "0sec",
+            //};
 
-            var query = new StringWriter();
-            WriteJobParameters(query, _params);
+            //var query = new StringWriter();
+            //WriteJobParameters(query, _params);
 
-            Url = NetPath.Combine(context.BaseUrl, "job", jobName, $"buildWithParameters?{query}");
+            Url = NetPath.Combine(context.BaseUrl, "job", jobName, $"buildWithParameters");
             UserName = context.UserName;
             Password = context.Password;
             Crumb = context.Crumb;
+			var byteArray = Encoding.UTF8.GetBytes(HttpUtility.UrlEncode(JsonConvert.SerializeObject(jobParameters)) ?? throw new InvalidOperationException());
 
-            OnWrite = request => {
+			OnWrite = request => {
                 request.Method = "POST";
-            };
+				request.ContentLength = byteArray.Length;
+				request.ContentType = "application/x-www-form-urlencoded";
+				var dataStream = request.GetRequestStream();
+				dataStream.Write(byteArray, 0, byteArray.Length);
+				dataStream.Close();
+			};
 
             OnRead = response => {
                 if (response.StatusCode != System.Net.HttpStatusCode.Created)
